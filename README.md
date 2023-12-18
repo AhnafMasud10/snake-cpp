@@ -1,3 +1,22 @@
+To Run this project:
+-go to the build directory and use the "make" command.
+-then run the executable from build using "./bin/CMakeSFMLProject" (use this path specifically otherwise font wont work)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # CMake SFML Project Template
 
 This repository template should allow for a fast and hassle-free kick start of your next SFML project using CMake.
