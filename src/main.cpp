@@ -1,142 +1,174 @@
 #include <SFML/Graphics.hpp>
+#include <iostream>
 #include <deque>
-#include <cstdlib> // for rand()
 
-const int blockSize = 20;
+const int gridSize = 20;
 const int width = 800;
 const int height = 600;
 
-class Snake {
-public:
-    Snake();
-    void handleInput();
-    void update();
-    void render(sf::RenderWindow& window);
-    bool isGameOver() const;
+enum Direction { UP, DOWN, LEFT, RIGHT };
 
-private:
-    std::deque<sf::RectangleShape> snake;
-    sf::Vector2f direction;
-    sf::Clock clock;
-    float speed;
-    bool gameOver;
-
-    sf::RectangleShape food; // New variable for food
-    void spawnFood(); // New function to spawn food
+struct Snake {
+    std::deque<sf::Vector2i> body;
+    Direction direction;
 };
 
-Snake::Snake() {
-    snake.push_front(sf::RectangleShape(sf::Vector2f(blockSize, blockSize)));
-    snake.front().setPosition(100, 100);
-    direction = sf::Vector2f(blockSize, 0);
-    speed = 0.1f;
-    gameOver = false;
+struct Food {
+    sf::Vector2i position;
+};
 
-    food.setSize(sf::Vector2f(blockSize, blockSize)); // Initialize food size
-    spawnFood(); // Spawn initial food
+bool isFoodEaten(const Snake& snake, const Food& food) {
+    return snake.body.front() == food.position;
 }
 
-void Snake::handleInput() {
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up) && direction.y == 0) {
-        direction = sf::Vector2f(0, -blockSize);
+void handleInput(Snake& snake, bool& gameStarted, bool& gameOver) {
+    if (!gameStarted && sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+        gameStarted = true;
+        return;
     }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down) && direction.y == 0) {
-        direction = sf::Vector2f(0, blockSize);
+
+    if (gameOver && sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+        gameOver = false;
+        snake.body.clear();
+        snake.body.push_front(sf::Vector2i(5, 5));
+        snake.direction = RIGHT;
+        return;
     }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left) && direction.x == 0) {
-        direction = sf::Vector2f(-blockSize, 0);
-    }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right) && direction.x == 0) {
-        direction = sf::Vector2f(blockSize, 0);
+
+    if (gameStarted) {
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up) && snake.direction != DOWN)
+            snake.direction = UP;
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down) && snake.direction != UP)
+            snake.direction = DOWN;
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left) && snake.direction != RIGHT)
+            snake.direction = LEFT;
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right) && snake.direction != LEFT)
+            snake.direction = RIGHT;
     }
 }
 
-void Snake::update() {
-    if (!gameOver) {
-        if (clock.getElapsedTime().asSeconds() > speed) {
-            clock.restart();
-            sf::RectangleShape newSegment(sf::Vector2f(blockSize, blockSize));
-            newSegment.setPosition(snake.front().getPosition() + direction);
-            snake.push_front(newSegment);
+void moveSnake(Snake& snake, bool ateFood) {
+    sf::Vector2i head = snake.body.front();
 
-            // Check for collisions with food
-            if (snake.front().getGlobalBounds().intersects(food.getGlobalBounds())) {
-                spawnFood(); // Spawn new food
-            } else {
-                // Remove the tail of the snake
-                if (snake.size() > 1) {
-                    snake.pop_back();
-                }
-            }
+    switch (snake.direction) {
+        case UP:
+            snake.body.push_front(sf::Vector2i(head.x, head.y - 1));
+            break;
+        case DOWN:
+            snake.body.push_front(sf::Vector2i(head.x, head.y + 1));
+            break;
+        case LEFT:
+            snake.body.push_front(sf::Vector2i(head.x - 1, head.y));
+            break;
+        case RIGHT:
+            snake.body.push_front(sf::Vector2i(head.x + 1, head.y));
+            break;
+    }
 
-            // Check for collisions with window boundaries
-            if (snake.front().getPosition().x < 0 ||
-                snake.front().getPosition().x >= width ||
-                snake.front().getPosition().y < 0 ||
-                snake.front().getPosition().y >= height) {
-                gameOver = true;
-            }
+    if (!ateFood) {
+        snake.body.pop_back();
+    }
+}
+
+void checkCollision(Snake& snake, Food& food, bool& gameOver) {
+    sf::Vector2i head = snake.body.front();
+
+    // Check collision with walls
+    if (head.x < 0 || head.x >= width / gridSize || head.y < 0 || head.y >= height / gridSize) {
+        gameOver = true;
+    }
+
+    // Check collision with itself
+    for (auto it = snake.body.begin() + 1; it != snake.body.end(); ++it) {
+        if (*it == head) {
+            gameOver = true;
         }
     }
+
+    // Check collision with food
+    if (isFoodEaten(snake, food)) {
+        food.position = sf::Vector2i(rand() % (width / gridSize), rand() % (height / gridSize));
+        snake.body.push_back(snake.body.back());  // Increase the size of the snake
+    }
 }
 
-void Snake::render(sf::RenderWindow& window) {
-    window.draw(food); // Draw food
-    for (const auto& segment : snake) {
-        window.draw(segment);
+void update(sf::RenderWindow& window, Snake& snake, Food& food, bool& gameStarted, bool& gameOver) {
+    handleInput(snake, gameStarted, gameOver);
+
+    if (gameStarted && !gameOver) {
+        moveSnake(snake, isFoodEaten(snake, food));
+        checkCollision(snake, food, gameOver);
     }
+
+    window.clear();
+
+    // Draw food
+    sf::RectangleShape foodShape(sf::Vector2f(gridSize, gridSize));
+    foodShape.setPosition(food.position.x * gridSize, food.position.y * gridSize);
+    foodShape.setFillColor(sf::Color::Red);
+    window.draw(foodShape);
+
+    // Draw snake
+    for (const auto& segment : snake.body) {
+        sf::RectangleShape snakeSegment(sf::Vector2f(gridSize, gridSize));
+        snakeSegment.setPosition(segment.x * gridSize, segment.y * gridSize);
+        snakeSegment.setFillColor(sf::Color::Green);
+        window.draw(snakeSegment);
+    }
+
+    if (!gameStarted) {
+        // Display "Press Enter to Play" text
+        sf::Font font;
+        if (font.loadFromFile("../src/Montserrat-Bold.ttf")) {
+            sf::Text text("Press Enter to Play", font, 30);
+            text.setPosition(width / 2, height / 2);
+            window.draw(text);
+        }
+    }
+
     if (gameOver) {
-        // Display "Game Over" message
-        sf::Text gameOverText;
-        gameOverText.setString("Game Over. Press R to restart.");
-        gameOverText.setCharacterSize(24);
-        gameOverText.setFillColor(sf::Color::White);
-        gameOverText.setPosition(width / 2 - 160, height / 2 - 12);
-
-        window.draw(gameOverText);
+        // Display "Game Over. Restart." text
+        sf::Font font;
+        if (font.loadFromFile("../src/DancingScript-Bold.ttf")) {
+            sf::Text text("Game Over. Restart.", font, 30);
+            text.setPosition(width / 2, height / 2);
+            window.draw(text);
+        }
     }
-}
 
-bool Snake::isGameOver() const {
-    return gameOver;
-}
-
-void Snake::spawnFood() {
-    // Randomly position the food within the window
-    int x = rand() % (width / blockSize) * blockSize;
-    int y = rand() % (height / blockSize) * blockSize;
-
-    food.setPosition(x, y);
+    window.display();
 }
 
 int main() {
     sf::RenderWindow window(sf::VideoMode(width, height), "SFML Snake Game");
-    window.setFramerateLimit(10);
 
     Snake snake;
+    snake.body.push_front(sf::Vector2i(5, 5));
+    snake.direction = RIGHT;
+
+    Food food;
+    food.position = sf::Vector2i(rand() % (width / gridSize), rand() % (height / gridSize));
+
+    bool gameStarted = false;
+    bool gameOver = false;
+
+    sf::Clock clock;
+    float deltaTime = 0.0f;
+    float delay = 0.1f;
 
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
+            if (event.type == sf::Event::Closed)
                 window.close();
-            }
-            if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::R && snake.isGameOver()) {
-                    snake = Snake(); // Restart the game
-                }
-                if (event.key.code == sf::Keyboard::Escape || snake.isGameOver() ) {
-                    window.close();
-                }
-            }
         }
 
-        snake.handleInput();
-        snake.update();
+        deltaTime += clock.restart().asSeconds();
 
-        window.clear();
-        snake.render(window);
-        window.display();
+        if (deltaTime > delay) {
+            update(window, snake, food, gameStarted, gameOver);
+            deltaTime = 0.0f;
+        }
     }
 
     return 0;

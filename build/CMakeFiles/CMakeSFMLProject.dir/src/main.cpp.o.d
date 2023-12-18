@@ -496,4 +496,6 @@ CMakeFiles/CMakeSFMLProject.dir/src/main.cpp.o: \
   /Users/ahnafmasud/Documents/GitHub/snake-cpp/build/_deps/sfml-src/include/SFML/Graphics/Sprite.hpp \
   /Users/ahnafmasud/Documents/GitHub/snake-cpp/build/_deps/sfml-src/include/SFML/Graphics/Text.hpp \
   /Users/ahnafmasud/Documents/GitHub/snake-cpp/build/_deps/sfml-src/include/SFML/Graphics/VertexBuffer.hpp \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk/usr/include/c++/v1/iostream \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk/usr/include/c++/v1/istream \
   /Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk/usr/include/c++/v1/deque
